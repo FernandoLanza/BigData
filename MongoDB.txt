@@ -1,0 +1,235 @@
+// 1. Consultas básicas
+// Insertar un solo documento
+db.restaurants.insertOne({
+  name: "La Bella Italia",
+  borough: "Manhattan",
+  cuisine: "Italian",
+  address: {
+    building: "123",
+    street: "Mulberry Street",
+    zipcode: "10013",
+    coord: [-73.99756, 40.71962]
+  },
+  grades: [
+    { date: new Date("2023-10-01"), grade: "A", score: 10 }
+  ],
+  restaurant_id: "50987456"
+});
+
+// Insertar varios documentos
+db.restaurants.insertMany([
+  {
+    name: "Sushi Place",
+    borough: "Brooklyn",
+    cuisine: "Japanese",
+    address: {
+      building: "456",
+      street: "Nostrand Ave",
+      zipcode: "11216",
+      coord: [-73.94756, 40.68777]
+    },
+    grades: [
+      { date: new Date("2023-09-15"), grade: "A", score: 8 }
+    ],
+    restaurant_id: "50987457"
+  },
+  {
+    name: "The Burger Spot",
+    borough: "Queens",
+    cuisine: "American",
+    address: {
+      building: "789",
+      street: "Main St",
+      zipcode: "11385",
+      coord: [-73.87956, 40.70972]
+    },
+    grades: [
+      { date: new Date("2023-08-20"), grade: "B", score: 6 }
+    ],
+    restaurant_id: "50987458"
+  }
+]);
+
+// Seleccionar Documentos
+// Seleccionar todos los documentos
+db.restaurants.find();
+
+// Seleccionar documentos con un filtro
+db.restaurants.find({ borough: "Manhattan" });
+
+// Seleccionar documentos y mostrar solo ciertos campos
+db.restaurants.find(
+  { cuisine: "Italian" },
+  { name: 1, borough: 1, cuisine: 1, _id: 0 }
+);
+
+// Actualizar Documentos
+// Actualizar un solo documento (modificar el campo 'grade')
+db.restaurants.updateOne(
+  { name: "Sushi Place" },
+  { $set: { "grades.0.grade": "A+", "grades.0.score": 10 } }
+);
+
+// Actualizar varios documentos
+db.restaurants.updateMany(
+  { borough: "Brooklyn" },
+  { $set: { cuisine: "Fusion" } }
+);
+
+// Agregar un nuevo campo
+db.restaurants.updateOne(
+  { name: "The Burger Spot" },
+  { $set: { popular: true } }
+);
+
+// Eliminar Documentos
+// Eliminar un solo documento
+db.restaurants.deleteOne({ name: "La Bella Italia" });
+
+// Eliminar todos los documentos que cumplen una condición
+db.restaurants.deleteMany({ borough: "Queens" });
+
+// 2. Consultas con filtros y operadores
+// Operador de Comparación
+// Buscar todos los restaurantes en Manhattan
+db.restaurants.find({ borough: { $eq: "Manhattan" } });
+
+// Buscar restaurantes con una calificación mayor a 8
+db.restaurants.find({ "grades.score": { $gt: 8 } });
+
+// Buscar restaurantes con una calificación menor o igual a 5
+db.restaurants.find({ "grades.score": { $lte: 5 } });
+
+// Operador $in y $nin
+// Buscar restaurantes en Manhattan o Brooklyn
+db.restaurants.find({ borough: { $in: ["Manhattan", "Brooklyn"] } });
+
+// Buscar restaurantes que no están en Staten Island ni en Bronx
+db.restaurants.find({ borough: { $nin: ["Staten Island", "Bronx"] } });
+
+// Operador $and y $or
+// Buscar restaurantes en Manhattan que sirvan comida italiana
+db.restaurants.find({ $and: [{ borough: "Manhattan" }, { cuisine: "Italian" }] });
+
+// Buscar restaurantes que estén en Queens o que sirvan comida china
+db.restaurants.find({ $or: [{ borough: "Queens" }, { cuisine: "Chinese" }] });
+
+// Operador $size
+// Buscar restaurantes con exactamente 3 calificaciones en el campo "grades"
+db.restaurants.find({ grades: { $size: 3 } });
+
+// Operador $elemMatch
+// Buscar restaurantes con al menos una calificación "A" con una puntuación mayor a 9
+db.restaurants.find({
+  grades: { $elemMatch: { grade: "A", score: { $gt: 9 } } }
+});
+
+// 3. Consultas de agregación
+// Contar Documentos con $count
+// Contar el número total de restaurantes
+db.restaurants.aggregate([
+  { $count: "total_restaurants" }
+]);
+
+// Agrupar y Contar con $group y $sum
+// Contar restaurantes por tipo de cocina
+db.restaurants.aggregate([
+  { $group: { _id: "$cuisine", total: { $sum: 1 } } }
+]);
+
+// Promedio con $avg
+// Promedio de puntajes de calificación en los restaurantes
+db.restaurants.aggregate([
+  { $unwind: "$grades" },
+  { $group: { _id: "$name", averageScore: { $avg: "$grades.score" } } }
+]);
+
+// Mínimo y Máximo con $min y $max
+// Calificación máxima y mínima en cada restaurante
+db.restaurants.aggregate([
+  { $unwind: "$grades" },
+  { $group: { 
+      _id: "$name", 
+      maxScore: { $max: "$grades.score" },
+      minScore: { $min: "$grades.score" }
+  } }
+]);
+
+// Sumar valores específicos con $sum
+// Sumar todos los puntajes de calificaciones en los restaurantes
+db.restaurants.aggregate([
+  { $unwind: "$grades" },
+  { $group: { _id: null, totalScore: { $sum: "$grades.score" } } }
+]);
+
+// Agrupar y Promediar con Condiciones
+// Promedio de puntajes para restaurantes en Manhattan
+db.restaurants.aggregate([
+  { $match: { borough: "Manhattan" } },
+  { $unwind: "$grades" },
+  { $group: { _id: "$name", averageScore: { $avg: "$grades.score" } } }
+]);
+
+// Estadísticas Combinadas: Contar, Sumar y Promediar
+// Para cada tipo de cocina, contar restaurantes, obtener puntaje promedio y puntaje total
+db.restaurants.aggregate([
+  { $unwind: "$grades" },
+  { $group: {
+      _id: "$cuisine",
+      count: { $sum: 1 },
+      averageScore: { $avg: "$grades.score" },
+      totalScore: { $sum: "$grades.score" }
+  } }
+]);
+
+// Ordenar Resultados con $sort
+// Listar tipos de cocina por cantidad de restaurantes en orden descendente
+db.restaurants.aggregate([
+  { $group: { _id: "$cuisine", totalRestaurants: { $sum: 1 } } },
+  { $sort: { totalRestaurants: -1 } }
+]);
+
+// Limitar Resultados con $limit
+// Obtener las 5 cocinas con más restaurantes
+db.restaurants.aggregate([
+  { $group: { _id: "$cuisine", totalRestaurants: { $sum: 1 } } },
+  { $sort: { totalRestaurants: -1 } },
+  { $limit: 5 }
+]);
+
+// Distribución de restaurantes por calificación:
+db.restaurants.aggregate([
+  { $unwind: "$grades" },
+  { $group: { _id: "$grades.grade", total: { $sum: 1 } } },
+  { $sort: { total: -1 } }
+]);
+
+
+// Promedio de puntuación de calificación por tipo de cocina:
+db.restaurants.aggregate([
+  { $unwind: "$grades" },
+  { $group: { _id: "$cuisine", averageScore: { $avg: "$grades.score" } } },
+  { $sort: { averageScore: 1 } }
+]);
+
+// Número de restaurantes por código postal:
+db.restaurants.aggregate([
+  { $group: { _id: "$address.zipcode", total: { $sum: 1 } } },
+  { $sort: { total: -1 } }
+]);
+
+// Tipos de cocina populares en cada distrito:
+db.restaurants.aggregate([
+  { $group: { _id: { borough: "$borough", cuisine: "$cuisine" }, count: { $sum: 1 } } },
+  { $sort: { count: -1 } },
+  { $group: { _id: "$_id.borough", topCuisine: { $first: "$_id.cuisine" }, total: { $first: "$count" } } }
+]);
+
+// Calificaciones promedio por distrito:
+db.restaurants.aggregate([
+  { $unwind: "$grades" },
+  { $group: { _id: "$borough", averageScore: { $avg: "$grades.score" } } },
+  { $sort: { averageScore: 1 } }
+]);
+
+
